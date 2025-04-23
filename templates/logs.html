@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ollama Proxy Logs</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1e1e1e;
+            color: #ffffff;
+            margin: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header-title {
+            margin: 0;
+        }
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .models-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .models-content {
+            transition: max-height 0.3s ease-out;
+            overflow: hidden;
+        }
+        .models-content.collapsed {
+            max-height: 0;
+        }
+        #logs {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 10px;
+            border-radius: 5px;
+            background: #2d2d2d;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .request { color: #00bcd4; }
+        .response { color: #4caf50; }
+        .error { color: #f44336; }
+        .timestamp { color: #9e9e9e; }
+        .duration { color: #ff9800; }
+        .stream-content {
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        #models {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #2d2d2d;
+            border-radius: 5px;
+        }
+        .model-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 8px;
+            border-bottom: 1px solid #3d3d3d;
+        }
+        .model-item:last-child {
+            border-bottom: none;
+        }
+        .model-name {
+            flex-grow: 1;
+        }
+        .model-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .control-button {
+            background: #404040;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .control-button:hover {
+            background: #505050;
+        }
+        .control-button:disabled {
+            background: #303030;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .model-details {
+            font-size: 0.9em;
+            color: #888;
+            margin-top: 4px;
+        }
+        .model-size {
+            background: #404040;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
+        .model-quant {
+            background: #505050;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .refresh-button {
+            background: #404040;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 35px;
+        }
+        .refresh-button:hover {
+            background: #505050;
+        }
+        .refresh-button:disabled {
+            background: #303030;
+            cursor: not-allowed;
+        }
+        .refresh-button .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        .refresh-button.loading .spinner {
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .query-input {
+            display: none;
+            margin-top: 8px;
+            width: 100%;
+        }
+        .query-input.active {
+            display: flex;
+            gap: 8px;
+        }
+        .query-input input {
+            flex-grow: 1;
+            background: #404040;
+            border: 1px solid #505050;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+        .query-input button {
+            background: #606060;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            min-width: 60px;
+        }
+        .query-input button:disabled {
+            background: #404040;
+            cursor: not-allowed;
+        }
+        .query-input button.stop {
+            background: #f44336;
+        }
+        .query-input button.stop:hover {
+            background: #d32f2f;
+        }
+        .query-result {
+            margin-top: 8px;
+            white-space: pre-wrap;
+            background: #303030;
+            padding: 8px;
+            border-radius: 3px;
+            display: none;
+        }
+        .query-result.active {
+            display: block;
+        }
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+        .log-button {
+            background: #404040;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .log-button:hover {
+            background: #505050;
+        }
+        .log-select {
+            background: #404040;
+            border: none;
+            color: white;
+            padding: 8px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .log-select:hover {
+            background: #505050;
+        }
+        #logs {
+            display: flex;
+            flex-direction: column;
+        }
+        #logs.flipped {
+            flex-direction: column-reverse;
+        }
+        .timeout-message {
+            color: #ffa726;
+            font-size: 0.9em;
+            margin-top: 4px;
+            display: none;
+        }
+        .model-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .model-action-button {
+            background: #404040;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .model-action-button:hover {
+            background: #505050;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="header-title">Ollama Proxy Logs</h1>
+        <div class="header-controls">
+            <button class="log-button" onclick="clearLogs()">Clear Logs</button>
+            <select class="log-select" onchange="handleFlipChange(this.value)">
+                <option value="normal">Newest at Bottom</option>
+                <option value="flipped">Newest at Top</option>
+            </select>
+        </div>
+    </div>
+    
+    <div id="models">
+        <div class="models-header">
+            <h2 style="margin: 0;">Installed Models</h2>
+            <div class="model-controls">
+                <button id="refreshButton" class="refresh-button" onclick="refreshModels()">
+                    <div class="spinner"></div>
+                    <span>Refresh Model List</span>
+                </button>
+                <button class="model-action-button" onclick="toggleModels()" id="toggleModelsBtn">Collapse Models</button>
+            </div>
+        </div>
+        <div class="models-content" id="models-content">
+            <div id="model-list">Loading models...</div>
+        </div>
+    </div>
+    
+    <div id="logs"></div>
+
+    <script>
+        const logsDiv = document.getElementById('logs');
+        const modelList = document.getElementById('model-list');
+        const modelsContent = document.getElementById('models-content');
+        const toggleModelsBtn = document.getElementById('toggleModelsBtn');
+        const eventSource = new EventSource('/logs/stream');
+        let currentStreamDiv = null;
+        let streamStartTime = null;
+        let streamContent = '';
+        let isFlipped = false;
+        let activeController = null;
+        let queryStartTime = null;
+        let isModelsCollapsed = false;
+
+        function formatDuration(ms) {
+            return ms < 1000 ? `${ms}ms` : `${(ms/1000).toFixed(2)}s`;
+        }
+
+        function clearLogs() {
+            logsDiv.innerHTML = '';
+        }
+
+        function handleFlipChange(value) {
+            isFlipped = value === 'flipped';
+            if (isFlipped) {
+                logsDiv.classList.add('flipped');
+            } else {
+                logsDiv.classList.remove('flipped');
+            }
+        }
+
+        function addLogEntry(element) {
+            logsDiv.appendChild(element);
+            if (!isFlipped) {
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            } else {
+                logsDiv.scrollTop = 0;
+            }
+        }
+
+        function toggleModels() {
+            isModelsCollapsed = !isModelsCollapsed;
+            modelsContent.classList.toggle('collapsed');
+            toggleModelsBtn.textContent = isModelsCollapsed ? 'Expand Models' : 'Collapse Models';
+        }
+
+        // Function to fetch and update models
+        async function updateModels() {
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+                
+                modelList.innerHTML = data.models.map(model => {
+                    const details = model.details || {};
+                    const paramSize = details.parameter_size || 'Unknown size';
+                    const quantLevel = details.quantization_level || 'Unknown quantization';
+                    
+                    return `
+                    <div class="model-item">
+                        <div style="flex-grow: 1;">
+                            <div class="model-name">${model.name}</div>
+                            <div class="model-details">
+                                <span class="model-size">${paramSize}</span>
+                                <span class="model-quant">${quantLevel}</span>
+                            </div>
+                            <div class="query-input" id="query-${model.name}">
+                                <input type="text" placeholder="Enter your query (or press Send for default 'hey')">
+                                <button onclick="sendQuery('${model.name}')" id="send-${model.name}">Send</button>
+                                <button onclick="stopQuery('${model.name}')" id="stop-${model.name}" style="display: none" class="stop">Stop</button>
+                            </div>
+                            <div class="query-result" id="result-${model.name}"></div>
+                        </div>
+                        <div class="model-actions">
+                            <button 
+                                class="control-button" 
+                                onclick="startModel('${model.name}')"
+                                id="start-${model.name}">
+                                Start
+                            </button>
+                            <button 
+                                class="control-button" 
+                                onclick="toggleQuery('${model.name}')"
+                                id="query-btn-${model.name}">
+                                Query / Check if running
+                            </button>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error fetching models:', error);
+                modelList.innerHTML = '<div class="error">Error loading models</div>';
+            }
+        }
+
+        function showTimeoutMessage(modelName, container) {
+            const timeoutMessageId = `timeout-${modelName}`;
+            let timeoutMessage = document.getElementById(timeoutMessageId);
+            
+            // Create timeout message element if it doesn't exist
+            if (!timeoutMessage) {
+                timeoutMessage = document.createElement('div');
+                timeoutMessage.id = timeoutMessageId;
+                timeoutMessage.className = 'timeout-message';
+                timeoutMessage.textContent = 'Note: If this takes long, you might want to try Query to verify if the model responds. Sometimes a Query can stop the previous model and start the new one.';
+                container.appendChild(timeoutMessage);
+            }
+            timeoutMessage.style.display = 'block';
+            return timeoutMessage;
+        }
+
+        function hideTimeoutMessage(modelName) {
+            const timeoutMessage = document.getElementById(`timeout-${modelName}`);
+            if (timeoutMessage) {
+                timeoutMessage.style.display = 'none';
+            }
+        }
+
+        // Function to start model
+        async function startModel(modelName) {
+            const startButton = document.getElementById(`start-${modelName}`);
+            const queryButton = document.getElementById(`query-btn-${modelName}`);
+            
+            startButton.disabled = true;
+            startButton.textContent = 'Starting...';
+            
+            // Set timeout to show message after 5 seconds
+            const timeoutId = setTimeout(() => {
+                showTimeoutMessage(modelName, startButton.parentElement.parentElement);
+            }, 5000);
+            
+            try {
+                const response = await fetch('/api/model/control', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        action: 'start'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.status === 202) {
+                    startButton.textContent = 'Starting...';
+                } else if (!response.ok) {
+                    throw new Error(data.error || 'Failed to start model');
+                } else {
+                    startButton.textContent = 'Start';
+                    startButton.disabled = false;
+                    hideTimeoutMessage(modelName);
+                }
+            } catch (error) {
+                console.error('Error starting model:', error);
+                startButton.textContent = 'Start';
+                startButton.disabled = false;
+                hideTimeoutMessage(modelName);
+                alert('Error starting model: ' + error.message);
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        // Function to toggle query input
+        function toggleQuery(modelName) {
+            const queryInput = document.getElementById(`query-${modelName}`);
+            const isActive = queryInput.classList.contains('active');
+            
+            // Hide all query inputs and results
+            document.querySelectorAll('.query-input').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.query-result').forEach(el => el.classList.remove('active'));
+            
+            // Toggle this one if it wasn't active
+            if (!isActive) {
+                queryInput.classList.add('active');
+                queryInput.querySelector('input').focus();
+            }
+        }
+
+        // Function to send query to model
+        async function stopQuery(modelName) {
+            if (activeController) {
+                activeController.abort();
+                activeController = null;
+                const stopButton = document.getElementById(`stop-${modelName}`);
+                const sendButton = document.getElementById(`send-${modelName}`);
+                stopButton.style.display = 'none';
+                sendButton.disabled = false;
+            }
+        }
+
+        async function sendQuery(modelName) {
+            const queryInput = document.getElementById(`query-${modelName}`).querySelector('input');
+            const queryResult = document.getElementById(`result-${modelName}`);
+            const sendButton = document.getElementById(`send-${modelName}`);
+            const stopButton = document.getElementById(`stop-${modelName}`);
+            let query = queryInput.value.trim();
+            
+            // Use default "hey" if no input
+            if (!query) {
+                query = "hey";
+                queryInput.value = query;
+            }
+            
+            queryResult.textContent = '';
+            queryResult.classList.add('active');
+            sendButton.disabled = true;
+            stopButton.style.display = 'inline-block';
+            
+            // Start timing the query
+            queryStartTime = Date.now();
+            let timeoutId = setTimeout(() => {
+                showTimeoutMessage(modelName, queryResult.parentElement);
+            }, 5000);
+            
+            try {
+                // Create new AbortController for this request
+                if (activeController) {
+                    activeController.abort();
+                }
+                activeController = new AbortController();
+                
+                const response = await fetch('/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    signal: activeController.signal,
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: [{role: "user", content: query}],
+                        stream: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Model not responding');
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullResponse = '';
+                
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.choices && data.choices[0].delta.content) {
+                                    const content = data.choices[0].delta.content;
+                                    fullResponse += content;
+                                    queryResult.textContent = fullResponse;
+                                }
+                            } catch (e) {
+                                console.error('Error parsing chunk:', e);
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    queryResult.textContent += '\n\n[Query stopped by user]';
+                } else {
+                    console.error('Error querying model:', error);
+                    queryResult.textContent = 'Model is not responding: ' + error.message;
+                }
+            } finally {
+                activeController = null;
+                sendButton.disabled = false;
+                stopButton.style.display = 'none';
+                clearTimeout(timeoutId);
+                
+                // Only hide timeout message if query took less than 5 seconds
+                const queryDuration = Date.now() - queryStartTime;
+                if (queryDuration < 5000) {
+                    hideTimeoutMessage(modelName);
+                }
+            }
+        }
+
+        // Function to refresh model status
+        async function refreshModels() {
+            const button = document.getElementById('refreshButton');
+            button.disabled = true;
+            button.classList.add('loading');
+            
+            try {
+                const response = await fetch('/api/models/refresh', {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to refresh models');
+                }
+                
+                const data = await response.json();
+                updateModelList(data);
+            } catch (error) {
+                console.error('Error refreshing models:', error);
+                alert('Error refreshing models: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.classList.remove('loading');
+            }
+        }
+
+        // Function to update model list
+        function updateModelList(data) {
+            const modelList = document.getElementById('model-list');
+            modelList.innerHTML = data.models.map(model => {
+                const details = model.details || {};
+                const paramSize = details.parameter_size || 'Unknown size';
+                const quantLevel = details.quantization_level || 'Unknown quantization';
+                
+                return `
+                <div class="model-item">
+                    <div style="flex-grow: 1;">
+                        <div class="model-name">${model.name}</div>
+                        <div class="model-details">
+                            <span class="model-size">${paramSize}</span>
+                            <span class="model-quant">${quantLevel}</span>
+                        </div>
+                        <div class="query-input" id="query-${model.name}">
+                            <input type="text" placeholder="Enter your query (or press Send for default 'hey')">
+                            <button onclick="sendQuery('${model.name}')" id="send-${model.name}">Send</button>
+                            <button onclick="stopQuery('${model.name}')" id="stop-${model.name}" style="display: none" class="stop">Stop</button>
+                        </div>
+                        <div class="query-result" id="result-${model.name}"></div>
+                    </div>
+                    <div class="model-actions">
+                        <button 
+                            class="control-button" 
+                            onclick="startModel('${model.name}')"
+                            id="start-${model.name}">
+                            Start
+                        </button>
+                        <button 
+                            class="control-button" 
+                            onclick="toggleQuery('${model.name}')"
+                            id="query-btn-${model.name}">
+                            Query / Check if running
+                        </button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        // Initial load
+        refreshModels();
+
+        eventSource.onmessage = function(event) {
+            const log = JSON.parse(event.data);
+            const timestamp = new Date().toLocaleTimeString();
+            
+            if (log.type === 'stream_start') {
+                currentStreamDiv = document.createElement('div');
+                streamStartTime = new Date();
+                streamContent = '';
+                
+                currentStreamDiv.innerHTML = `<div>
+<span class="timestamp">[${timestamp}]</span> 
+<span class="request">🔄 Streaming response started</span>
+</div>
+<div class="stream-content response"></div>`;
+                addLogEntry(currentStreamDiv);
+            }
+            else if (log.type === 'stream_end') {
+                if (currentStreamDiv) {
+                    const duration = new Date() - streamStartTime;
+                    const contentDiv = currentStreamDiv.querySelector('.stream-content');
+                    contentDiv.textContent = streamContent;
+                    
+                    const endDiv = document.createElement('div');
+                    endDiv.innerHTML = `<div>
+<span class="timestamp">[${timestamp}]</span> 
+<span class="response">✓ Stream completed</span> 
+<span class="duration">(${formatDuration(duration)})</span>
+</div>`;
+                    
+                    if (isFlipped) {
+                        currentStreamDiv.insertBefore(endDiv, currentStreamDiv.firstChild);
+                    } else {
+                        currentStreamDiv.appendChild(endDiv);
+                    }
+                    
+                    currentStreamDiv = null;
+                    streamStartTime = null;
+                }
+            }
+            else if (log.type === 'stream_chunk') {
+                if (currentStreamDiv) {
+                    streamContent += log.message;
+                    const contentDiv = currentStreamDiv.querySelector('.stream-content');
+                    contentDiv.textContent = streamContent;
+                }
+            }
+            else {
+                const logElement = document.createElement('div');
+                logElement.innerHTML = `<span class="timestamp">[${timestamp}]</span> <span class="${log.type}">${log.message}</span>`;
+                addLogEntry(logElement);
+            }
+        };
+
+        eventSource.onerror = function(error) {
+            console.error('EventSource failed:', error);
+            eventSource.close();
+        };
+    </script>
+</body>
+</html> 
