@@ -2,6 +2,8 @@
 
 A Flask-based proxy that translates OpenAI API calls to Ollama API calls, with real-time logging visualization.
 
+![Ollama OpenAI API Proxy Logs Dashboard](https://punnerud.github.io/cursor_ollama_proxy/example.png)
+
 ## Features
 
 - OpenAI API compatibility layer for Ollama
