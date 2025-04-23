@@ -30,6 +30,22 @@ The following ports will be exposed:
 
 The proxy will automatically connect to your local Ollama instance running on port 11434.
 
+4. Expose the proxy using ngrok or similar:
+   ```bash
+   ngrok http 7005
+   ```
+
+## Using with Cursor
+
+1. Copy the ngrok URL (e.g., `https://357c-171-123-237-18.ngrok-free.app/v1`) and paste it into Cursor's OpenAI API settings:
+   - Open Preferences
+   - Go to Cursor Settings
+   - Under Models, paste the URL into the OpenAI API Key setting
+
+2. Add your Ollama model name (e.g., "gemma3:12b-it-qat") to the models list in Cursor settings
+
+3. Select the model in the chat window after activating
+
 ## Web Log Viewer
 
 Access the real-time log viewer at:
@@ -58,10 +74,6 @@ response = openai.ChatCompletion.create(
     stream=True  # streaming is supported!
 )
 ```
-
-## Using with Cursor
-
-Since Cursor doesn't accept localhost connections, you'll need to expose your proxy using a service like ngrok or similar. After exposing the service, update your API base URL to the provided public URL.
 
 ## Development Setup
 
