@@ -1,4 +1,4 @@
-# Ollama OpenAI API Proxy
+# Cursor Ollama OpenAI API Proxy
 
 A Flask-based proxy that translates OpenAI API calls to Ollama API calls, with real-time logging visualization.
 
