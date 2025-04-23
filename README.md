@@ -1,6 +1,6 @@
 # Cursor Ollama OpenAI API Proxy
 
-A Flask-based proxy that translates OpenAI API calls to Ollama API calls, with real-time logging visualization.
+A Flask-based proxy that enables Cursor to use locally hosted Ollama models by translating OpenAI API calls to Ollama API calls, with real-time visualization of all traffic between Cursor and your local models.
 
 ![Ollama OpenAI API Proxy Logs Dashboard](https://punnerud.github.io/cursor_ollama_proxy/example.png)
 
